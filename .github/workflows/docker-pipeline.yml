@@ -4,9 +4,13 @@ on:
   push:
     branches:
       - main
+      - 'feature/**'
+      
+  # abrir pra develop ou main.
   pull_request:
     branches:
       - main
+      - develop
 
 jobs:
   docker:
