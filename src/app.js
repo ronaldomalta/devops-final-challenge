@@ -18,6 +18,9 @@ const {
 
 const app = express();
 
+// Confia no IP repassado pelo Nginx (Reverse Proxy)
+app.set('trust proxy', 1);
+
 // ======================================================
 // OBSERVABILIDADE
 // ======================================================
@@ -35,7 +38,8 @@ app.use(helmet());
 // CORS
 app.use(cors());
 
-// Rate limiting
+// Rate limiting (DESATIVADO PARA TESTES DE CARGA)
+/*
 if (!env.isTest()) {
   const limiter = rateLimit({
     windowMs: env.rateLimit.windowMs,
@@ -59,6 +63,8 @@ if (!env.isTest()) {
     return limiter(req, res, next);
   });
 }
+*/
+
 // ======================================================
 // BODY PARSING
 // ======================================================
