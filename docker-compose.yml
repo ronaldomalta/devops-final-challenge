@@ -1,5 +1,4 @@
 services:
-
   postgres:
     image: postgres:16-alpine
     container_name: ecommerce-postgres
@@ -53,6 +52,19 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend # Ajuste para o caminho da pasta onde esta o código do React
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:3001
+    container_name: ecommerce-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - api
 
   prometheus:
     image: prom/prometheus:latest
