@@ -55,10 +55,10 @@ services:
 
   frontend:
     build:
-      context: ./frontend # Ajuste para o caminho da pasta onde esta o código do React
+      context: ./frontend
       dockerfile: Dockerfile
       args:
-        - VITE_API_URL=http://localhost:3001
+        - VITE_API_URL=/api/v1
     container_name: ecommerce-frontend
     restart: unless-stopped
     ports:
