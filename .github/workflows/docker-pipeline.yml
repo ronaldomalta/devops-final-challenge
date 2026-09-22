@@ -22,9 +22,9 @@ jobs:
       - name: Checkout do código
         uses: actions/checkout@v4
 
-      # Detecta credenciais expostas
+      # Verifica se há credenciais/secrets expostos acidentalmente no código
       - name: Secret Scanning (Trufflehog)
-        uses: trufflesecurity/trufflehog-action@main
+        uses: trufflesecurity/trufflehog@main
         with:
           extra_args: --only-verified
 
