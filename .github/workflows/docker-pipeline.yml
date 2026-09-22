@@ -1,19 +1,48 @@
-name: Docker CI/CD Pipeline
+name: Docker CI/CD Pipeline Security
 
 on:
   push:
     branches:
       - main
       - 'feature/**'
-      
-  # abrir pra develop ou main.
   pull_request:
     branches:
       - main
       - develop
 
 jobs:
+  # =======================================================
+  # 1. SAST - Análise Estática de Segurança no Código
+  # =======================================================
+  sast:
+    name: SAST (Code & Secrets Scan)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      # Verifica se há credenciais/secrets expostos acidentalmente no código
+      - name: Secret Scanning (Trufflehog)
+        uses: trufflesecurity/trufflehog-action@main
+        with:
+          extra_args: --only-verified
+
+      # Análise estática de vulnerabilidades e código inseguro
+      - name: SAST Code Scan (Trivy Repo)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'table'
+          severity: 'HIGH,CRITICAL'
+
+  # =======================================================
+  # 2. DOCKER BUILD - Construção e Teste da Imagem
+  # =======================================================
   docker:
+    name: Docker Build & Push
+    needs: sast # Só executa se o SAST passar com sucesso
     runs-on: ubuntu-latest
 
     steps:
@@ -30,6 +59,18 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # Análise de segurança da própria Imagem Docker (vulnerabilidades nas dependências e SO)
+      - name: Build local da imagem para teste
+        run: |
+          docker build -t devops-final-api:local .
+
+      - name: Scan da Imagem Docker (Trivy Image)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'devops-final-api:local'
+          format: 'table'
+          severity: 'HIGH,CRITICAL'
+
       - name: Build e Push da API
         uses: docker/build-push-action@v6
         with:
@@ -37,3 +78,30 @@ jobs:
           file: ./Dockerfile
           push: ${{ github.event_name == 'push' }}
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/devops-final-api:latest
+
+  # =======================================================
+  # 3. DAST - Análise Dinâmica de Segurança em Tempo de Execução
+  # =======================================================
+  dast:
+    name: DAST (OWASP ZAP Scan)
+    needs: docker # Executa após a imagem estar pronta
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Subir a aplicação para o teste DAST
+        run: |
+          docker build -t devops-final-api:dast .
+          docker run -d --name api-container -p 8080:8080 devops-final-api:dast
+          
+          # Aguarda a aplicação inicializar totalmente
+          sleep 10
+
+      - name: OWASP ZAP Baseline Scan (DAST)
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: 'http://localhost:8080' # Altere a porta se sua aplicação rodar em outra (ex: 80, 3000, 5000)
+          fail_action: false # Defina como true se quiser bloquear a pipeline quando encontrar falhas graves
+          allow_issue_writing: false
