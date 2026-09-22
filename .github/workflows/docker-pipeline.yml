@@ -22,15 +22,13 @@ jobs:
       - name: Checkout do código
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Analisa todo o histórico de commits para busca de secrets
+          fetch-depth: 0
 
-      # Verifica se há credenciais/secrets expostos no código
       - name: Secret Scanning (Trufflehog)
         uses: trufflesecurity/trufflehog@main
         with:
           extra_args: --only-verified
 
-      # Análise estática no código-fonte
       - name: SAST Code Scan (Trivy Repo)
         uses: aquasecurity/trivy-action@master
         with:
@@ -61,7 +59,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Análise de segurança na imagem Docker da API
       - name: Build local para teste de segurança
         run: |
           docker build -t devops-final-api:local .
@@ -81,17 +78,13 @@ jobs:
           push: ${{ github.event_name == 'push' }}
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/devops-final-api:latest
 
- # =======================================================
+  # =======================================================
   # 3. DAST - Análise Dinâmica na API em Execução
   # =======================================================
   dast:
     name: DAST (OWASP ZAP Scan)
     needs: docker
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      issues: write
-      checks: write
 
     steps:
       - name: Checkout do código
@@ -108,25 +101,24 @@ jobs:
         run: |
           curl -I http://localhost:3001 || exit 1
 
-      # Dispara a análise DAST com o token de autenticação do GitHub
-      - name: OWASP ZAP API Scan
-        uses: zaproxy/action-api-scan@v0.7.0
-        with:
-          target: 'http://localhost:3001'
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fail_action: false
-          allow_issue_writing: false
+      # Executa o OWASP ZAP via Docker em rede host (sem dependência de API/actions antigas)
+      - name: OWASP ZAP API Scan (Docker)
+        run: |
+          mkdir -p zap-reports
+          chmod 777 zap-reports
+          docker run --rm --network host -v $(pwd)/zap-reports:/zap/wrk/:rw \
+            zaproxy/zap-stable zap-api-scan.py \
+            -t http://localhost:3001 \
+            -f openapi \
+            -r report.html -J report.json || true
 
-      # Upload do relatório
+      # Upload dos relatórios gerados
       - name: Upload do Relatório DAST
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: zap-report
-          path: |
-            *.html
-            *.xml
-            *.json
+          name: zap-scan-reports
+          path: zap-reports/
           if-no-files-found: ignore
 
       - name: Derrubar ambiente de teste
