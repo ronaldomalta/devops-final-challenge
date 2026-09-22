@@ -21,8 +21,10 @@ jobs:
     steps:
       - name: Checkout do código
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Analisa todo o histórico de commits para busca de secrets
 
-      # Verifica se há credenciais/secrets expostos acidentalmente no código
+      # Verifica se há credenciais/secrets expostos no código
       - name: Secret Scanning (Trufflehog)
         uses: trufflesecurity/trufflehog@main
         with:
@@ -91,7 +93,7 @@ jobs:
       - name: Checkout do código
         uses: actions/checkout@v4
 
-      # Sobe todo a infraestrutura (Postgres, Redis, API) para a API responder corretamente
+      # Sobe toda a infraestrutura (Postgres, Redis, API) para a API responder corretamente
       - name: Subir ambiente com Docker Compose
         run: |
           docker compose up -d --build
@@ -109,9 +111,20 @@ jobs:
         uses: zaproxy/action-api-scan@v0.7.0
         with:
           target: 'http://localhost:3001'
-          artifact_name: 'zap-scan-report'  
           fail_action: false
           allow_issue_writing: false
+
+      # Upload do relatório usando a Action oficial do GitHub
+      - name: Upload do Relatório DAST
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report
+          path: |
+            *.html
+            *.xml
+            *.json
+          if-no-files-found: ignore
 
       - name: Derrubar ambiente de teste
         if: always()
