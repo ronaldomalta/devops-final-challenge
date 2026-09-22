@@ -109,7 +109,8 @@ jobs:
         uses: zaproxy/action-api-scan@v0.7.0
         with:
           target: 'http://localhost:3001'
-          fail_action: false # Altere para true se desejar travar a pipeline em caso de falhas
+          artifact_name: 'zap-scan-report'  
+          fail_action: false
           allow_issue_writing: false
 
       - name: Derrubar ambiente de teste
